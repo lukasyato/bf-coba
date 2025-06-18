@@ -50,4 +50,4 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           script: |
             cd /var/www/bf-coba
-            git pull origin main
+            sudo git pull origin main

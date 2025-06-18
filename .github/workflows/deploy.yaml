@@ -18,7 +18,7 @@ jobs:
       - name: Get EC2 public IPs from Auto Scaling Group
         id: fetch_hosts
         run: |
-          GROUP_NAME="BlackfishTest"
+          GROUP_NAME="BF Coba Scale"
 
           INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
             --auto-scaling-group-names "$GROUP_NAME" \

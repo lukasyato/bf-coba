@@ -19,19 +19,28 @@ jobs:
         id: fetch_hosts
         run: |
           GROUP_NAME="BlackfishTest"
+
           INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
-            --auto-scaling-group-names $GROUP_NAME \
+            --auto-scaling-group-names "$GROUP_NAME" \
             --query "AutoScalingGroups[0].Instances[*].InstanceId" \
             --output text)
 
-          echo "Found instances: $INSTANCE_IDS"
+          echo "Found instance IDs: $INSTANCE_IDS"
+
+          if [ -z "$INSTANCE_IDS" ]; then
+            echo "❌ No instances found in Auto Scaling Group: $GROUP_NAME"
+            exit 1
+          fi
 
           HOSTS=$(aws ec2 describe-instances \
             --instance-ids $INSTANCE_IDS \
             --query "Reservations[*].Instances[*].PublicIpAddress" \
             --output text | tr '\t' ',')
 
+          echo "✅ Found public IPs: $HOSTS"
+
           echo "hosts=$HOSTS" >> $GITHUB_OUTPUT
+
 
       - name: Deploy to all EC2 instances
         uses: appleboy/ssh-action@master

@@ -3,10 +3,12 @@ on:
   push:
     branches:
       - main
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+      - main-scan
 
+jobs:
+  deploy-main:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -51,3 +53,56 @@ jobs:
           script: |
             cd /var/www/bf-coba
             sudo git pull origin main
+
+      - name: Create new AMI from source EC2
+        id: create_ami
+        run: |
+          INSTANCE_ID="i-01550e23a910daf70"
+          DATE=$(date +%Y%m%d-%H%M%S)
+          AMI_NAME="bf-coba-${DATE}"
+          
+          AMI_ID=$(aws ec2 create-image \
+            --instance-id $INSTANCE_ID \
+            --name "$AMI_NAME" \
+            --description "AMI from GitHub deploy $DATE" \
+            --no-reboot \
+            --query 'ImageId' \
+            --output text)
+
+          echo "AMI_ID=$AMI_ID"
+          echo "ami_id=$AMI_ID" >> $GITHUB_OUTPUT
+
+      - name: Wait for AMI to become available
+        run: |
+          AMI_ID=${{ steps.create_ami.outputs.ami_id }}
+
+          echo "⏳ Waiting for AMI to be available..."
+          aws ec2 wait image-available --image-ids $AMI_ID
+          echo "✅ AMI $AMI_ID is now available."
+
+      - name: Update Launch Template to use new AMI
+        id: update_lt
+        run: |
+          LAUNCH_TEMPLATE_NAME="bf-coba-template"
+          AMI_ID=${{ steps.create_ami.outputs.ami_id }}
+
+          echo "🔧 Creating new launch template version with AMI $AMI_ID..."
+
+          NEW_VERSION=$(aws ec2 create-launch-template-version \
+            --launch-template-name $LAUNCH_TEMPLATE_NAME \
+            --source-version 1 \
+            --launch-template-data "{\"ImageId\":\"$AMI_ID\"}" \
+            --query 'LaunchTemplateVersion.VersionNumber' \
+            --output text)
+
+          echo "New launch template version: $NEW_VERSION"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set Default Launch Template Version
+        run: |
+          aws ec2 modify-launch-template \
+            --launch-template-name "bf-coba-template" \
+            --default-version ${{ steps.update_lt.outputs.version }}
+
+          echo "✅ Launch template now defaults to AMI ${{ steps.create_ami.outputs.ami_id }}"
+

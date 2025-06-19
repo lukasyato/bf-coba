@@ -43,10 +43,9 @@ jobs:
           HOSTS=$(aws ec2 describe-instances \
             --instance-ids $INSTANCE_IDS \
             --query "Reservations[*].Instances[*].PublicIpAddress" \
-            --output text | tr '\t' ',')
+            --output text | tr '\n' ',' | sed 's/,$//')
 
           echo "✅ Found public IPs: $HOSTS"
-
           echo "hosts=$HOSTS" >> $GITHUB_OUTPUT
 
       - name: Deploy to all EC2 instances

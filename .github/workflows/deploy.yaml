@@ -20,7 +20,7 @@ jobs:
       - name: Get EC2 public IPs from Target Group
         id: fetch_hosts
         run: |
-          TG_NAME="BF Coba Scale"
+          TG_NAME="BlackfishTest"
           TG_ARN=$(aws elbv2 describe-target-groups \
             --names "$TG_NAME" \
             --query "TargetGroups[0].TargetGroupArn" \
